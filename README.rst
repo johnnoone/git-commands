@@ -2,12 +2,12 @@
 git-commands
 ============
 
-Extends Git with custom commands:
+Extends Git with custom commands.
 
-:git branch-status:
+git branch-status
     Show the status of branchs, if they are forward or ahead from master
 
-:git release:
+git release
     Tag and push current branch to origin and promote the release.
 
 For each command, a complete description is available within source code.
