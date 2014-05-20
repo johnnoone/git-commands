@@ -62,7 +62,7 @@ def remote(repository, master, keep, dry_run=None):
     for ref in execute('git branch -r --merged', master).splitlines():
         ref = ref.strip()
         repo, branch = ref.split('/', 1)
-        if repo != repository:
+        if repo != repository or ' -> ' in ref:
             logging.debug('skip %s', ref)
             continue
         elif keepable(ref, branch):
