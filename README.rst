@@ -7,6 +7,12 @@ Extends Git with custom commands.
 git branch-status
     Show the status of branchs, if they are forward or ahead from master
 
+git cleanup
+    Cleanup merged branches.
+
+git flake8
+    Check uncommited python files.
+
 git release
     Tag and push current branch to origin and promote the release.
 
