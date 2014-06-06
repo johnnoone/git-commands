@@ -51,6 +51,8 @@ def flake8(only=None):
     buffer = execute('git status -s')
     for line in buffer.splitlines():
         status, filename = line.split(None, 1)
+        if status in ('D',):
+            continue
         if allowed(filename):
             print('\033[92m{}\033[0m'.format(filename))
             print(execute('flake8', filename))
