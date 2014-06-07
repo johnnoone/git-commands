@@ -20,6 +20,11 @@ import subprocess
 import re
 
 
+def stringify(text):
+    if sys.version_info >= (3,) and isinstance(text, bytes):
+        return text.decode('utf-8')
+
+
 class ProcessException(Exception):
     pass
 
@@ -32,9 +37,9 @@ def execute(command, *args):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE).communicate()
     if err:
-        raise ProcessException(err)
+        raise ProcessException(stringify(err))
 
-    return msg
+    return stringify(msg)
 
 
 def flake8(only=None):
