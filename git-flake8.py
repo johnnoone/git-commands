@@ -23,6 +23,7 @@ import re
 def stringify(text):
     if sys.version_info >= (3,) and isinstance(text, bytes):
         return text.decode('utf-8')
+    return text
 
 
 class ProcessException(Exception):
