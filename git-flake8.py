@@ -55,13 +55,22 @@ def flake8(only=None):
         return False
 
     buffer = execute('git status -s')
-    for line in buffer.splitlines():
-        status, filename = line.split(None, 1)
-        if status in ('D',):
-            continue
+    for filename in extract_files(buffer):
         if allowed(filename):
             print('\033[92m{}\033[0m'.format(filename))
             print(execute('flake8', filename))
+
+
+def extract_files(buffer):
+    for line in buffer.splitlines():
+        status, src = line.split(None, 1)
+        if status in ('D',):
+            continue
+        yield src
+        for root, dirs, files in os.walk(src):
+            for file in files:
+                yield os.path.join(root, file)
+
 
 if __name__ == '__main__':
     import argparse
