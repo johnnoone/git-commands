@@ -25,7 +25,7 @@ Installation
 These commands relie on python 2.7 or python >= 3.2.
 Copy each ``*.py`` scripts into /usr/local/bin/, without there extensions. For example::
 
-     cp git-branch-status.py /usr/local/bin/git-branch-status
+    cp git-branch-status /usr/local/bin/git-branch-status
 
 
 Regenerate manual
