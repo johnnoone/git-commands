@@ -18,6 +18,8 @@ import fnmatch
 import logging
 import subprocess
 import re
+import os
+from distutils.spawn import find_executable
 
 
 def stringify(text):
@@ -43,7 +45,15 @@ def execute(command, *args):
     return stringify(msg)
 
 
-def flake8(only=None):
+def flake8(bin, only=None):
+    if bin is None:
+        for bin in ('flake8', 'flake8-2.7', 'flake-3.2'):
+            bin = find_executable(bin)
+            if bin is not None:
+                break
+        else:
+            raise Exception('Could not find flake8 in your os')
+
     patterns = set([re.compile(fnmatch.translate(k)) for k in only or []])
     def allowed(filename):
         if not filename.endswith('.py'):
@@ -58,7 +68,7 @@ def flake8(only=None):
     for filename in extract_files(buffer):
         if allowed(filename):
             print('\033[92m{}\033[0m'.format(filename))
-            print(execute('flake8', filename))
+            print(execute(bin, filename))
 
 
 def extract_files(buffer):
@@ -85,5 +95,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='git flake8')
     parser.add_argument('patterns', metavar='PATTERN', nargs='*',
                         help='check only theses patterns')
+    parser.add_argument('--bin')
     args = parser.parse_args()
-    flake8(only=args.patterns)
+    flake8(bin=args.bin, only=args.patterns)
