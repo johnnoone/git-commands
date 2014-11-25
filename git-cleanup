@@ -13,6 +13,8 @@ import logging
 import subprocess
 import fnmatch
 import re
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 KEEP_DEFAULTS = [
     'master',
@@ -76,6 +78,141 @@ def remote(repository, master, keep, dry_run=None):
                 except ProcessException as error:
                     logging.error('%s cant be deleted: %s', ref, error.args[0])
 
+
+def local_tags():
+    for tag in execute('git tag -l').splitlines():
+        yield tag
+
+
+def remote_tags(repository):
+    for line in execute('git ls-remote --tags', repository).splitlines():
+        ref = line.split()[1]
+        if ref.startswith('refs/tags/'):
+            yield ref[10:]
+
+
+def clean_local_tags(branchs, dry_run=None):
+    if dry_run:
+        def delete_local_tag(tag):
+            return True
+    else:
+        def delete_local_tag(tag):
+            execute('git tag -d', tag)
+
+    patterns = []
+    for branch in branchs:
+        pattern = re.compile('(?P<branch>%s)-(?P<period>\d{8})' % re.escape(branch))
+        patterns.append(pattern)
+
+    period_a = datetime.now() - timedelta(days=30)
+    period_b = datetime.now() - timedelta(days=90)
+
+    buckets = defaultdict(set)
+    unattended = set()
+    for tag in local_tags():
+        for pattern in patterns:
+            matches = pattern.match(tag)
+            if matches:
+                period = datetime.strptime(matches.group('period'), '%Y%m%d')
+                if period > period_a:
+                    continue
+                    logging.info('keep recent %s (local)', tag)
+                elif period > period_b:
+                    discr = period.strftime('%Y-%m week %W')
+                    buckets[(matches.group('branch'), discr)].add(tag)
+                else:
+                    discr = period.strftime('%Y-%m')
+                    buckets[(matches.group('branch'), discr)].add(tag)
+                break
+        else:
+            unattended.add(tag)
+
+    for bucket, tags in buckets.items():
+        tags = sorted(tags, key=len)
+        logging.info('keep %s (local)', tags.pop())
+        for tag in tags:
+            logging.info('delete %s (local)', tag)
+            delete_local_tag(tag)
+
+    for tag in unattended:
+        logging.info('delete %s (local)', tag)
+        delete_local_tag(tag)
+
+
+def clean_remote_tags(repository, branchs, dry_run=None):
+    if dry_run:
+        def delete_remote_tag(tag, repository):
+            return True
+    else:
+        def delete_remote_tag(tag, repository):
+            execute('git push -q --delete', repository, tag)
+            return True
+
+    patterns = []
+    for branch in branchs:
+        pattern = re.compile('(?P<branch>%s)-(?P<period>\d{8})' % re.escape(branch))
+        patterns.append(pattern)
+
+    tags = set()
+    for tag in remote_tags(repository):
+        tags.add(tag)
+
+    period_a = datetime.now() - timedelta(days=30)
+    period_b = datetime.now() - timedelta(days=90)
+
+    buckets = defaultdict(set)
+    unattended = set()
+    for tag in tags:
+        for pattern in patterns:
+            matches = pattern.match(tag)
+            if matches:
+                period = datetime.strptime(matches.group('period'), '%Y%m%d')
+                if period > period_a:
+                    print('keep recent %s' % tag)
+                elif period > period_b:
+                    discr = period.strftime('%Y-%m week %W')
+                    buckets[(matches.group('branch'), discr)].add(tag)
+                else:
+                    discr = period.strftime('%Y-%m')
+                    buckets[(matches.group('branch'), discr)].add(tag)
+                break
+        else:
+            unattended.add(tag)
+
+    for bucket, tags in buckets.items():
+        tags = sorted(tags, key=len)
+        logging.info('keep %s (remote)', tags.pop())
+        for tag in tags:
+            logging.info('delete %s (remote)', tag)
+            delete_remote_tag(tag, repository)
+
+    for tag in unattended:
+        logging.info('delete %s (remote)', tag)
+        delete_remote_tag(tag, repository)
+
+    for tag in unattended:
+        try:
+            delete_remote_tag(tag, repository)
+            logging.info('delete %s (remote)', tag)
+        except ProcessException:
+            logging.warn('cannot delete %s (remote)', tag)
+
+
+def clean_unreleased_tags(repository, dry_run=None):
+    if dry_run:
+        def delete_local_tag(tag):
+            return True
+    else:
+        def delete_local_tag(tag):
+            execute('git tag -d', tag)
+
+    local_t = set(local_tags())
+    remote_t = set(remote_tags(repository))
+    for tag in (local_t - remote_t):
+        delete_local_tag(tag)
+        logging.info('delete unreleased %s (local)', tag)
+
+
 if __name__ == '__main__':
     import argparse
     import sys
@@ -94,7 +231,7 @@ if __name__ == '__main__':
     subparsers = parser.add_subparsers(description='configure the cleaning process',  # NOQA
                                        help='kind of cleaning')
 
-    def parse_remote(args):
+    def parse_remote(args, parser):
         master = args.merged_into.format(**args.__dict__)
         keep = [keep.format(**args.__dict__) for keep in args.keep] + [master]
         remote(args.repository, master, keep, args.dry_run)
@@ -113,5 +250,23 @@ if __name__ == '__main__':
                                default=list(KEEP_DEFAULTS),
                                help='keep these references untouched')
 
+    def parse_tags(args, parser):
+        branchs = set(args.keep + ["master"])
+
+        clean_local_tags(branchs, args.dry_run)
+        clean_remote_tags(args.repository, branchs, args.dry_run)
+        clean_unreleased_tags(args.repository, args.dry_run)
+
+    parser_tags = subparsers.add_parser('tags',
+                                        help='cleanup local and remote tags')
+    parser_tags.set_defaults(func=parse_tags)
+    parser_tags.add_argument('repository',
+                             nargs='?',
+                             default='origin',
+                             help='choose the remote repository. default to origin')  # NOQA
+    parser_tags.add_argument('--keep', '--k', action="append",
+                             default=list(KEEP_DEFAULTS),
+                             help='keep these references untouched')
+
     args = parser.parse_args()
-    args.func(args)
+    args.func(args, parser)
