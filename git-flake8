@@ -56,19 +56,25 @@ def flake8(bin, only=None):
 
     patterns = set([re.compile(fnmatch.translate(k)) for k in only or []])
     def allowed(filename):
-        if not filename.endswith('.py'):
-            return False
-        elif not only:
+        if only and any(pattern.match(filename) for pattern in patterns):
             return True
-        elif any(pattern.match(filename) for pattern in patterns):  # noqa
+        elif filename.endswith('.py'):
             return True
+        try:
+            with open(filename) as file:
+                shebang = file.readline()
+                if shebang.startswith('#!') and 'python' in shebang:
+                    return True
+        except IOError as error:
+            logging.warn('cannot open %s', filename)
         return False
 
     buffer = execute('git status -s')
     for filename in extract_files(buffer):
         if allowed(filename):
             print('\033[92m{}\033[0m'.format(filename))
-            print(execute(bin, filename))
+            for line in execute(bin, filename, '--format=default').splitlines():
+                print('  ' + line[len(filename) + 1:])
 
 
 def extract_files(buffer):
