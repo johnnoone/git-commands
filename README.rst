@@ -8,7 +8,7 @@ git branch-status
     Show the status of branchs, if they are forward or ahead from master
 
 git cleanup
-    Cleanup merged branches.
+    Cleanup merged branches, and old tags.
 
 git flake8
     Check uncommited python files.
@@ -23,7 +23,7 @@ Installation
 ~~~~~~~~~~~~
 
 These commands relie on python 2.7 or python >= 3.2.
-Copy each ``*.py`` scripts into /usr/local/bin/, without there extensions. For example::
+Copy each ``git-*`` scripts into /usr/local/bin/. For example::
 
     cp git-branch-status /usr/local/bin/git-branch-status
 
