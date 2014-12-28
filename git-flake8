@@ -60,6 +60,8 @@ def flake8(bin, only=None):
             return True
         elif filename.endswith('.py'):
             return True
+        elif filename.endswith('/'):
+            return False
         try:
             with open(filename) as file:
                 shebang = file.readline()
